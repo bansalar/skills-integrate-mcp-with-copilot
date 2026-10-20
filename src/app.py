@@ -5,17 +5,39 @@ A super simple FastAPI application that allows students to view and sign up
 for extracurricular activities at Mergington High School.
 """
 
-from fastapi import FastAPI, HTTPException
+import json
+import secrets
+import time
+from fastapi import Depends, FastAPI, HTTPException
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 import os
 from pathlib import Path
+from pydantic import BaseModel
+
+if __package__:
+    from .teacher_auth import verify_password
+else:
+    from teacher_auth import verify_password
 
 app = FastAPI(title="Mergington High School API",
               description="API for viewing and signing up for extracurricular activities")
 
-# Mount the static files directory
+# Teacher credentials are provisioned locally and never committed.
 current_dir = Path(__file__).parent
+teachers_file = Path(os.environ.get("TEACHERS_FILE", current_dir / "teachers.json"))
+session_ttl_seconds = 8 * 60 * 60
+teacher_sessions: dict[str, tuple[str, float]] = {}
+bearer_scheme = HTTPBearer(auto_error=False)
+
+
+class TeacherLogin(BaseModel):
+    username: str
+    password: str
+
+
+# Mount the static files directory
 app.mount("/static", StaticFiles(directory=os.path.join(Path(__file__).parent,
           "static")), name="static")
 
@@ -78,6 +100,64 @@ activities = {
 }
 
 
+def load_teacher_credentials() -> dict[str, dict[str, str]]:
+    if not teachers_file.exists():
+        return {}
+
+    try:
+        data = json.loads(teachers_file.read_text(encoding="utf-8"))
+        teachers = data["teachers"]
+        if not isinstance(teachers, list):
+            raise ValueError("teachers must be a list")
+        return {teacher["username"]: teacher for teacher in teachers}
+    except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as error:
+        raise HTTPException(status_code=500, detail="Teacher credentials are misconfigured") from error
+
+
+def require_teacher(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+) -> str:
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        raise HTTPException(
+            status_code=401,
+            detail="Teacher login required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    token = credentials.credentials
+    session = teacher_sessions.get(token)
+    if session is None or session[1] <= time.time():
+        teacher_sessions.pop(token, None)
+        raise HTTPException(
+            status_code=401,
+            detail="Teacher session expired or invalid",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return token
+
+
+@app.post("/auth/login")
+def teacher_login(login: TeacherLogin):
+    teacher = load_teacher_credentials().get(login.username)
+    if teacher is None or not verify_password(login.password, teacher):
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+
+    token = secrets.token_urlsafe(32)
+    teacher_sessions[token] = (login.username, time.time() + session_ttl_seconds)
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "username": login.username,
+        "expires_in": session_ttl_seconds,
+    }
+
+
+@app.post("/auth/logout")
+def teacher_logout(token: str = Depends(require_teacher)):
+    teacher_sessions.pop(token, None)
+    return {"message": "Logged out"}
+
+
 @app.get("/")
 def root():
     return RedirectResponse(url="/static/index.html")
@@ -89,7 +169,11 @@ def get_activities():
 
 
 @app.post("/activities/{activity_name}/signup")
-def signup_for_activity(activity_name: str, email: str):
+def signup_for_activity(
+    activity_name: str,
+    email: str,
+    teacher_token: str = Depends(require_teacher),
+):
     """Sign up a student for an activity"""
     # Validate activity exists
     if activity_name not in activities:
@@ -111,7 +195,11 @@ def signup_for_activity(activity_name: str, email: str):
 
 
 @app.delete("/activities/{activity_name}/unregister")
-def unregister_from_activity(activity_name: str, email: str):
+def unregister_from_activity(
+    activity_name: str,
+    email: str,
+    teacher_token: str = Depends(require_teacher),
+):
     """Unregister a student from an activity"""
     # Validate activity exists
     if activity_name not in activities:
