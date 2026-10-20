@@ -8,8 +8,16 @@
   </head>
   <body>
     <header>
-      <h1>Mergington High School</h1>
-      <h2>Extracurricular Activities</h2>
+      <div class="header-content">
+        <div>
+          <h1>Mergington High School</h1>
+          <h2>Extracurricular Activities</h2>
+        </div>
+        <div class="account-controls">
+          <span id="teacher-status">Public view</span>
+          <button id="teacher-auth-button" type="button">Teacher login</button>
+        </div>
+      </div>
     </header>
 
     <main>
@@ -21,7 +29,7 @@
         </div>
       </section>
 
-      <section id="signup-container">
+      <section id="signup-container" class="hidden">
         <h3>Sign Up for an Activity</h3>
         <form id="signup-form">
           <div class="form-group">
@@ -40,6 +48,25 @@
         <div id="message" class="hidden"></div>
       </section>
     </main>
+
+    <dialog id="teacher-login-dialog" aria-labelledby="teacher-login-title">
+      <form id="teacher-login-form">
+        <h2 id="teacher-login-title">Teacher login</h2>
+        <div class="form-group">
+          <label for="teacher-username">Username:</label>
+          <input id="teacher-username" name="username" autocomplete="username" required />
+        </div>
+        <div class="form-group">
+          <label for="teacher-password">Password:</label>
+          <input id="teacher-password" name="password" type="password" autocomplete="current-password" required />
+        </div>
+        <p id="teacher-login-error" class="error hidden" role="alert"></p>
+        <div class="dialog-actions">
+          <button id="teacher-login-cancel" class="secondary-button" type="button">Cancel</button>
+          <button type="submit">Sign in</button>
+        </div>
+      </form>
+    </dialog>
 
     <footer>
       <p>&copy; 2026 Mergington High School</p>

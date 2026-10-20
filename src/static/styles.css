@@ -16,7 +16,6 @@ body {
 }
 
 header {
-  text-align: center;
   padding: 20px 0;
   margin-bottom: 30px;
   background-color: #1a237e;
@@ -24,8 +23,29 @@ header {
   border-radius: 5px;
 }
 
+.header-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 0 24px;
+}
+
 header h1 {
   margin-bottom: 10px;
+}
+
+.account-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.account-controls button,
+.dialog-actions button {
+  padding: 9px 14px;
+  font-size: 14px;
 }
 
 main {
@@ -190,6 +210,49 @@ button:hover {
 
 .hidden {
   display: none;
+}
+
+dialog {
+  width: min(100% - 32px, 420px);
+  margin: auto;
+  padding: 28px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25);
+}
+
+dialog::backdrop {
+  background: rgba(10, 18, 48, 0.55);
+}
+
+dialog h2 {
+  margin-bottom: 24px;
+  color: #1a237e;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.secondary-button {
+  background: #e8eaf6;
+  color: #1a237e;
+}
+
+@media (max-width: 600px) {
+  .header-content {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 0 16px;
+  }
+
+  .account-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
 }
 
 footer {
